@@ -30,22 +30,21 @@ View(mishandled_data)
 
 ########## On-Time Data Preprocessing ##########
 # Passenger data is missing from other years in the mishandled_data file, to the point where dropping the values would be more effective than imputing them.
-# filter for 2018
-ontime_2018 <- filter(ontime_data, YEAR == 2018) %>%
-  select(-c(YEAR, ARRDELAY))
-summary(ontime_2018) # updated summary statistics
+# drop ARRDELAY column
+ontime_data <- select(ontime_data, -ARRDELAY)
+summary(ontime_data) # see updated summary statistics
 
-# drop YEAR, ARRDELAY columns
-# ontime_2018 <- select(ontime_data, -c(YEAR, ARRDELAY))
-head(ontime_2018) # view first few rows
-View(ontime_2018) # view file
+head(ontime_data) # view first few rows
+View(ontime_data) # view file
 
-# group by MONTH and CARRIER ***
-ontime_2018_grouped <- group_by(ontime_2018, MONTH, CARRIER)
-View(ontime_2018_grouped)
+# group by YEAR, MONTH, and CARRIER
+ontime_grouped <- group_by(ontime_data, YEAR, MONTH, CARRIER)
+View(ontime_grouped)
+
+summarize(ontime_grouped, count = n())
 
 # aggregate using mean for CANCELLED, DIVERTED & aggregate using median for DELAY types
-ontime_2018_aggregated <- summarize(ontime_2018_grouped,
+ontime_aggregated <- summarize(ontime_grouped,
                                     mean_CANCELLED = mean(CANCELLED, na.rm = T),
                                     mean_DIVERTED = mean(DIVERTED, na.rm = T),
                                     median_DEPDELAY = median(DEPDELAY, na.rm = T),
@@ -54,17 +53,29 @@ ontime_2018_aggregated <- summarize(ontime_2018_grouped,
                                     median_NASDELAY = median(NASDELAY, na.rm = T), 
                                     median_SECURITYDELAY = median(SECURITYDELAY, na.rm = T),
                                     median_LATEAIRCRAFTDELAY = median(LATEAIRCRAFTDELAY, na.rm = T))
-View(ontime_2018_aggregated) 
+View(ontime_aggregated) 
 # considering using a less-aggregated file for analysis, this resulting dataframe has only 124 rows
+# having now kept the data from 2018-2021 (instead of sticking to only 2018), the resulting dataframe has 484 rows
 
 ########## Mishandled Data Preprocessing ###########
-# filter for the year 2018, drop YEAR column
-mishandled_2018 <- filter(mishandled_data, YEAR == 2018) %>%
-  select(-YEAR)
-View(mishandled_2018)
+# revisit mishandled_data_by_year and think of possibilities
+head(mishandled_missing_by_year)
+
+# Do we need the passenger column? One possibility is to drop that column, and keep the data from 2018-2021.
+  # This option would mean restoring the column YEAR, and filtering out the 2016/2017 observations.
+# Another possibility is to change the level of aggregation. 
+
+# Other options for dealing with the passenger column: drop NA values, drop passenger column entirely, bootstrap additional values
+# Filter out the data from 2016 and 2017 (no ontime data to match it), and remove the passenger column
+mishandled_no_pass <- mishandled_data %>%
+  filter(!(YEAR %in% c(2016, 2017))) %>%
+  select(-PASSENGERS)
+head(mishandled_no_pass)
 
 ########## Mishandled / Ontime Data Merge ##########
-# merge MISHANDLED/ONTIME by MONTH/CARRIER
-combined_data <- inner_join(mishandled_2018, ontime_2018_aggregated, by = c("MONTH", "CARRIER"))
+# merge MISHANDLED/ONTIME by YEAR/MONTH/CARRIER
+combined_data <- inner_join(mishandled_no_pass, ontime_aggregated, by = c("YEAR", "MONTH", "CARRIER"))
 View(combined_data)
-# merged dataset only has about 100 rows at this point - will revisit so we have a more robust dataset! 
+# merged dataset only has about 100 rows at this point - will revisit so we have a more sizable dataset (8/3)
+# merged dataset with edits now has 625 rows - better, but still not ideal (8/4)
+
